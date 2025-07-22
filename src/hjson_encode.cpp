@@ -106,7 +106,7 @@ static int _fromUtf8(const unsigned char **ppC, size_t *pnS) {
     return -1;
   }
 
-  if (*pnS < nS) {
+  if (*pnS < (size_t)nS) {
     return -1;
   }
 
@@ -190,7 +190,7 @@ static void _mlString(Encoder *e, const std::string& value) {
     do {
       std::smatch match = *it;
       auto indent = e->indent + 1;
-      if (match.position() == uIndexStart) {
+      if ((size_t)match.position() == uIndexStart) {
         indent = 0;
       }
       _writeIndent(e, indent);
@@ -400,7 +400,7 @@ static void _writeVectorElemBegin(Encoder *e) {
   EncodeParent &ep = e->vParent.back();
   const Value &value = *ep.pVal;
 
-  for (; ep.index < value.size(); ep.index++) {
+  for (; (size_t)ep.index < value.size(); ep.index++) {
     const Value &elem= value[ep.index];
     if (elem.defined()) {
       bool shouldIndent = (!e->opt.comments || elem.get_comment_key().empty());
@@ -449,7 +449,7 @@ static void _writeVectorElemBegin(Encoder *e) {
     *e->os << ep.commentAfter;
   }
   if (!ep.isEmpty && (!e->opt.comments || ep.commentAfter.empty() ||
-    !e->opt.separator && ep.commentAfter.find("\n") == std::string::npos))
+    (!e->opt.separator && ep.commentAfter.find("\n") == std::string::npos)))
   {
     _writeIndent(e, e->indent - 1);
   }
@@ -488,8 +488,8 @@ static void _objElem(Encoder *e, const std::string& key, const Value& value, boo
     if (e->opt.comments) {
       *e->os << commentAfterPrevObj;
     }
-    if (!hasCommentBefore || !e->opt.separator &&
-      value.get_comment_before().find("\n") == std::string::npos)
+    if (!hasCommentBefore || (!e->opt.separator &&
+      value.get_comment_before().find("\n") == std::string::npos))
     {
       _writeIndent(e, e->indent);
     }
@@ -531,7 +531,7 @@ static void _writeMapElemBegin(Encoder *e) {
   const Value &value = *ep.pVal;
 
   if (e->opt.preserveInsertionOrder) {
-    for (; ep.index < value.size(); ++ep.index) {
+    for (; (size_t)ep.index < value.size(); ++ep.index) {
       const Value &elem = value[ep.index];
       if (elem.defined()) {
         int oldParentIndex = e->vParent.size() - 1;
@@ -565,7 +565,7 @@ static void _writeMapElemBegin(Encoder *e) {
   }
   if (!ep.isEmpty && (!e->opt.omitRootBraces || e->vParent.size() > 1) &&
     (!e->opt.comments || ep.commentAfter.empty() ||
-    !e->opt.separator && ep.commentAfter.find("\n") == std::string::npos))
+    (!e->opt.separator && ep.commentAfter.find("\n") == std::string::npos)))
   {
     _writeIndent(e, e->indent - 1);
   }
