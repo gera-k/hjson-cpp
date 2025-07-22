@@ -122,7 +122,7 @@ void Value::ValueImpl::DeepClear(Value &val) {
     v.emplace_back(val, 0);
 
     while (!v.empty()) {
-      if (v.back().second >= v.back().first.size()) {
+      if ((size_t)v.back().second >= v.back().first.size()) {
         v.back().first.clear();
         v.pop_back();
       } else {
@@ -439,7 +439,7 @@ const Value& Value::operator[](int index) const {
     throw index_out_of_bounds("Index out of bounds.");
   case Type::Vector:
   case Type::Map:
-    if (index < 0 || index >= size()) {
+    if (index < 0 || (size_t)index >= size()) {
       throw index_out_of_bounds("Index out of bounds.");
     }
 
@@ -469,7 +469,7 @@ Value& Value::operator[](int index) {
     throw index_out_of_bounds("Index out of bounds.");
   case Type::Vector:
   case Type::Map:
-    if (index < 0 || index >= size()) {
+    if (index < 0 || (size_t)index >= size()) {
       throw index_out_of_bounds("Index out of bounds.");
     }
 
@@ -1280,7 +1280,7 @@ Value Value::clone() const {
   case Type::Map:
     {
       Value ret;
-      for (int index = 0; index < size(); ++index) {
+      for (int index = 0; (size_t)index < size(); ++index) {
         ret[key(index)] = operator[](index).clone();
       }
       ret.set_comments(*this);
@@ -1318,7 +1318,7 @@ void Value::erase(int index) {
   case Type::Undefined:
   case Type::Vector:
   case Type::Map:
-    if (index < 0 || index >= size()) {
+    if (index < 0 || (size_t)index >= size()) {
       throw index_out_of_bounds("Index out of bounds.");
     }
 
@@ -1365,7 +1365,7 @@ void Value::move(int from, int to) {
   case Type::Undefined:
   case Type::Vector:
   case Type::Map:
-    if (from < 0 || to < 0 || from >= size() || to > size()) {
+    if (from < 0 || to < 0 || (size_t)from >= size() || (size_t)to > size()) {
       throw index_out_of_bounds("Index out of bounds.");
     }
 
@@ -1414,7 +1414,7 @@ std::string Value::key(int index) const {
   {
   case Type::Undefined:
   case Type::Map:
-    if (index < 0 || index >= size()) {
+    if (index < 0 || (size_t)index >= size()) {
       throw index_out_of_bounds("Index out of bounds.");
     }
     return prv->m->v[index];
@@ -1920,7 +1920,7 @@ Value Merge(const Value& base, const Value& ext) {
   if (!ext.defined()) {
     merged = base.clone();
   } else if (base.type() == Type::Map && ext.type() == Type::Map) {
-    for (int index = 0; index < ext.size(); ++index) {
+    for (size_t index = 0; index < ext.size(); ++index) {
       if (base[ext.key(index)].defined()) {
         merged[ext.key(index)] = Merge(base[ext.key(index)], ext[index]);
       } else {
@@ -1928,7 +1928,7 @@ Value Merge(const Value& base, const Value& ext) {
       }
     }
 
-    for (int index = 0; index < base.size(); ++index) {
+    for (size_t index = 0; index < base.size(); ++index) {
       if (!merged[base.key(index)].defined()) {
         merged[base.key(index)] = base[index].clone();
       }
