@@ -35,6 +35,7 @@ public:
   Value val;
   CommentInfo ciBefore, ciKey, ciElemBefore, ciElemExtra;
   std::string key;
+  bool isRoot = false;
 };
 
 
@@ -80,7 +81,7 @@ static inline void _setComment(Value& val, void (Value::*fp)(const std::string&)
 
 static bool _next(Parser *p) {
   // get the next character.
-  if (p->indexNext < p->dataSize) {
+  if ((size_t)p->indexNext < p->dataSize) {
     p->ch = p->data[p->indexNext++];
     return true;
   }
@@ -91,7 +92,7 @@ static bool _next(Parser *p) {
   return false;
 }
 
-
+#ifdef UNUSED__PREV
 static bool _prev(Parser *p) {
   // get the previous character.
   if (p->indexNext > 1) {
@@ -101,7 +102,7 @@ static bool _prev(Parser *p) {
 
   return false;
 }
-
+#endif
 
 static void _resetAt(Parser *p) {
   p->indexNext = 0;
@@ -115,7 +116,7 @@ static bool _isPunctuatorChar(char c) {
 
 
 static std::string _errAt(Parser *p, const std::string& message) {
-  if (p->dataSize && p->indexNext <= p->dataSize) {
+  if (p->dataSize && (size_t)p->indexNext <= p->dataSize) {
     size_t decoderIndex = std::max(static_cast<size_t>(1), std::min(p->dataSize,
       static_cast<size_t>(p->indexNext))) - 1;
     size_t i = decoderIndex, col = 0, line = 1;
@@ -143,7 +144,7 @@ static std::string _errAt(Parser *p, const std::string& message) {
 static unsigned char _peek(Parser *p, int offs) {
   int pos = p->indexNext + offs;
 
-  if (pos >= 0 && pos < p->dataSize) {
+  if (pos >= 0 && (size_t)pos < p->dataSize) {
     return p->data[pos];
   }
 
@@ -342,7 +343,7 @@ static std::string _readKeyname(Parser *p) {
     if (p->ch == ':') {
       if (keyEnd <= keyStart) {
         throw syntax_error(_errAt(p, "Found ':' but no key name (for an empty key name use quotes)"));
-      } else if (firstSpace >= 0 && firstSpace != keyEnd) {
+      } else if (firstSpace >= 0 && (size_t)firstSpace != keyEnd) {
         p->indexNext = firstSpace + 1;
         throw syntax_error(_errAt(p, "Found whitespace in your key name (use quotes to include)"));
       }
@@ -628,6 +629,10 @@ static void _readObjectElemBegin(Parser* p) {
   }
 
   p->vParent.back().key = _readKeyname(p);
+  if (p->vParent.back().isRoot && p->opt.duplicateKeyHandler) {
+    p->opt.duplicateKeyHandler(p->vParent.back().key, object);
+  }
+  
   if (p->opt.duplicateKeyException && object[p->vParent.back().key].defined()) {
     throw syntax_error(_errAt(p, "Found duplicate of key '" + p->vParent.back().key + "'"));
   }
@@ -756,6 +761,7 @@ static Value _rootValue(Parser *p) {
   CommentInfo ciExtra;
 
   p->vParent.push_back(DecodeParent());
+  p->vParent.back().isRoot = true;
   p->vParent.back().ciBefore = _white(p);
 
   if (p->ch == '[') {

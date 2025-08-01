@@ -74,12 +74,12 @@ static bool _parseInt(std::int64_t *pNumber, const char *pCh, size_t nCh) {
 
 static bool _next(NumberParser *p) {
   // get the next character.
-  if (p->indexNext < p->dataSize) {
+  if ((size_t)p->indexNext < p->dataSize) {
     p->ch = p->data[p->indexNext++];
     return true;
   }
 
-  if (p->indexNext == p->dataSize) {
+  if ((size_t)p->indexNext == p->dataSize) {
     p->indexNext++;
   }
 
@@ -146,7 +146,7 @@ bool tryParseNumber(Value *pValue, const char *text, size_t textSize, bool stopA
   if (stopAtNext) {
     // end scan if we find a punctuator character like ,}] or a comment
     if (p.ch == ',' || p.ch == '}' || p.ch == ']' ||
-      p.ch == '#' || (p.indexNext < textSize && p.ch == '/' &&
+      p.ch == '#' || ((size_t)p.indexNext < textSize && p.ch == '/' &&
       (p.data[p.indexNext] == '/' || p.data[p.indexNext] == '*')))
     {
       p.ch = 0;

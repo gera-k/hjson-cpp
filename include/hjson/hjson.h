@@ -6,6 +6,7 @@
 #include <memory>
 #include <map>
 #include <stdexcept>
+#include <functional>
 
 #define HJSON_OP_DECL_VAL(_T, _O) \
 friend Value operator _O(_T, const Value&); \
@@ -77,6 +78,7 @@ enum class Type {
   Map
 };
 
+class Value;
 
 // DecoderOptions defines options for decoding from Hjson.
 struct DecoderOptions {
@@ -90,6 +92,8 @@ struct DecoderOptions {
   // If true, an Hjson::syntax_error exception is thrown from the unmarshal
   // functions if a map contains duplicate keys.
   bool duplicateKeyException = false;
+
+  std::function<void(std::string& key, Hjson::Value&)> duplicateKeyHandler = nullptr;
 };
 
 
@@ -136,6 +140,7 @@ private:
 
   std::shared_ptr<ValueImpl> prv;
   std::shared_ptr<Comments> cm;
+  bool root = false;
 
   Value(std::shared_ptr<ValueImpl>, std::shared_ptr<Comments>);
 
