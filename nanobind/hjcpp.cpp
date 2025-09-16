@@ -6,6 +6,10 @@
 
 namespace nb = nanobind;
 
+std::string version() {
+    return Hjson::version();
+}
+
 bool hj2py(
     std::string str,        // string containing HJSON data to parse
     nb::dict obj,           // dictionary to populate with parsed data
@@ -21,6 +25,9 @@ std::string py2hj(
 
 NB_MODULE(hjcpp, m) {
     m.doc() = "Python bindings for hjson-cpp\n\n"
+              "  version() -> str\n"
+              "    Get the version of the Hjson library.\n"
+              "\n"
               "  hj2py(hjson: str, obj: dict, comm: list, err: dict) -> bool\n"
               "    Parse HJSON string into Python dictionary.\n"
               "    hjson is the input HJSON string to parse.\n"
@@ -30,15 +37,19 @@ NB_MODULE(hjcpp, m) {
               "    Returns True on success, False on failure.\n"
               "    Structure of the comm:\n"
               "      comm = tuple(\n"
-              "                 tuple(comment_before, comment_key, comment_inside, comment_after, pos_item, pos_key),\n"
-              "                 child_comments\n"
+              "                 comm_self = tuple(pos_key, pos_item, \n"
+              "                       comment_before, comment_key,\n"
+              "                       comment_inside, comment_after),\n"
+              "                 comm_child\n"
               "             )\n"
-              "     For nested structures, the 'child_comments' field will contain comments for child elements:\n"
-              "        - for maps, child_comments is a dict of field_name -> comm]\n"
-              "        - for arrays, child_comments is an array of comm\n"
-              "      For primitive values, child_comments is None\n"
-              "      Exception: the root object comm is a list[self_comments, child_comments]\n"
-              "      pos_item and pos_key are the positions in the input HJSON string\n"
+              "     For nested structures, the 'comm_child' field will contain comments for child elements:\n"
+              "        - for maps, comm_child is a dict of field_name -> comm\n"
+              "        - for arrays, comm_child is an array of comm\n"
+              "      For primitive values, comm_child is None.\n"
+              "      Exception: the root object comm is a list[comm_self, comm_child] (not a tuple).\n"
+              "      pos_item and pos_key are the positions of the item itself and item key, if applicable,\n"
+              "      in the input HJSON string.\n"
+              "\n"
               "  py2hj(obj: dict, comm: list, err: dict) -> str\n"
               "    Convert Python dictionary into HJSON string.\n"
               "    obj is the data to convert.\n"
@@ -46,6 +57,8 @@ NB_MODULE(hjcpp, m) {
               "    err will contain error information if conversion fails.\n"
               "    Returns the output HJSON string or empty string in case of error.\n"
               ;
+
+    m.def("version", &version, "Get the version of the Hjson library.");
 
     m.def("hj2py", &hj2py, 
           nb::arg("hjson"), 
@@ -202,12 +215,12 @@ bool hj2py(
 
         // comments to the root object itself
         nb::tuple comm_self = nb::make_tuple(
+            val.get_pos_key(),
+            val.get_pos_item(),
             val.get_comment_before(),
             val.get_comment_key(),
             val.get_comment_inside(),
-            val.get_comment_after(),
-            val.get_pos_item(),
-            val.get_pos_key()
+            val.get_comment_after()
         ); 
         comm.append(comm_self);
 
@@ -252,12 +265,12 @@ static void vector2list(const Hjson::Value& from, nb::list& to_list, nb::list& t
 
         // comments to the value itself
         nb::tuple comm_self = nb::make_tuple(
+            val.get_pos_key(),
+            val.get_pos_item(),
             val.get_comment_before(),
             val.get_comment_key(),
             val.get_comment_inside(),
-            val.get_comment_after(),
-            val.get_pos_item(),
-            val.get_pos_key()
+            val.get_comment_after()
         );
 
         if (val.type() == Hjson::Type::Map)
@@ -316,12 +329,12 @@ static void map2dict(const Hjson::Value& from, nb::dict& to_dict, nb::dict& to_c
         const Hjson::Value& val = it->second;
 
         nb::tuple comm_self = nb::make_tuple(
+            val.get_pos_key(),
+            val.get_pos_item(),
             val.get_comment_before(),
             val.get_comment_key(),
             val.get_comment_inside(),
-            val.get_comment_after(),
-            val.get_pos_item(),
-            val.get_pos_key()
+            val.get_comment_after()
         );
 
         if (val.type() == Hjson::Type::Map)
@@ -382,13 +395,13 @@ static void set_comments(Hjson::Value& to, nb::handle comm)
 
     nb::tuple comm_tuple = nb::cast<nb::tuple>(comm);
 
-    if (nb::len(comm) < 4)
-        throw std::runtime_error("Comments tuple must have 4 elements");
+    if (nb::len(comm) < 6)
+        throw std::runtime_error("Comments tuple must have 6 elements");
 
-    to.set_comment_before(nb::cast<std::string>(comm[0]));
-    to.set_comment_key(nb::cast<std::string>(comm[1]));
-    to.set_comment_inside(nb::cast<std::string>(comm[2]));
-    to.set_comment_after(nb::cast<std::string>(comm[3]));
+    to.set_comment_before(nb::cast<std::string>(comm[2]));
+    to.set_comment_key(nb::cast<std::string>(comm[3]));
+    to.set_comment_inside(nb::cast<std::string>(comm[4]));
+    to.set_comment_after(nb::cast<std::string>(comm[5]));
 }
 
 static Hjson::Value handle2value(
@@ -453,20 +466,29 @@ static Hjson::Value handle2value(
         else
             throw std::runtime_error("Comments for map must be a dict");
 
-        for (const auto& [key, value] : from_dict)
+        // keep order of map elements as set by pos_key in comments for the item:
+        //  comm_dict[key][0][0]
+        //    key extracts the two-element comment tuple for the item
+        //    [0] extracts the 6-element comm_self tuple
+        //    [0] extracts the pos_key value
+        std::map<int, std::string> key_order;
+        for (const auto& [key, value] : comm_dict)
         {
-            if (!nb::isinstance<std::string>(key))
-                throw std::runtime_error("Dictionary keys must be strings");
-
-            std::string key_str = nb::cast<std::string>(key);
-
-            nb::handle comm_val = nb::none();
-            if (comm_dict.contains(key))
-                comm_val = comm_dict[key];
-
-            val[key_str] = handle2value(value, comm_val);
+            auto key_str = nb::cast<std::string>(key);
+            auto comm_self = nb::cast<nb::tuple>(value[0]);
+            key_order[nb::cast<int>(comm_self[0])] = key_str;
         }
 
+        for (const auto& [pos, key] : key_order)
+        {
+            if (!from_dict.contains(key))
+                throw std::runtime_error("Comments contain key not in dictionary: " + key);
+
+            nb::handle from_value = from_dict[key.c_str()];
+            nb::handle from_comm = comm_dict[key.c_str()];
+
+            val[key] = handle2value(from_value, from_comm);
+        }
     }
     else if (nb::isinstance<nb::list>(from))
     {
@@ -524,7 +546,7 @@ std::string py2hj(
     options.bracesSameLine = true;
     // Always place string values in double quotation marks ("), and escape
     // any special chars inside the string value
-    options.quoteAlways = false;
+    options.quoteAlways = true;
     // Always place keys in quotes
     options.quoteKeys = false;
     // Indent string
@@ -541,7 +563,7 @@ std::string py2hj(
     // If false, the key/value pairs are placed in alphabetical key order.
     options.preserveInsertionOrder = true;
     // If true, omits root braces.
-    options.omitRootBraces = false;
+    options.omitRootBraces = true;
     // Write comments, if any are found in the Hjson::Value objects.
     options.comments = true;
 

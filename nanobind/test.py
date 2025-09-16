@@ -1,8 +1,10 @@
 import build.hjcpp as hjcpp
 import json
+from collections import OrderedDict
 
 test1 = """
 {
+    'hhh': 'This is a \\'test\\' string with \\\\ escapes'
     'aaa': 123 // comment aaa
     'bbb': [
         1       // comment bbb.1
@@ -10,12 +12,11 @@ test1 = """
         3       /* comment bbb.3 */
     ] # comment bbb
     'ccc': /*comment key ccc*/ true
-    'ddd': null
     'eee': {
-        'fff': 'hello'
         'ggg': -1.23e-10
+        'fff': 'hello'
     }
-    'hhh': 'This is a \\'test\\' string with \\\\ escapes'
+    'ddd': null
 }
 """
 
@@ -40,8 +41,9 @@ test3 = """
 }
 """
 
-test = test3
+test = test1
 
+# obj: OrderedDict = OrderedDict()
 obj: dict = {}
 comm: list = []
 err: dict = {}
@@ -57,3 +59,5 @@ print("\nPython to Hjson:")
 out = hjcpp.py2hj(obj, comm, err)
 print (f"out={out}")
 print (f"err={err}")
+
+print (f"\nHjson library version: {hjcpp.version()}")

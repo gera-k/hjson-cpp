@@ -14,9 +14,15 @@
 # include <sstream>
 #endif
 
+#define _STR(x) #x
+#define TO_STR(x) _STR(x)
 
 namespace Hjson {
 
+std::string version()
+{
+  return TO_STR(HJSON_VERSION);
+}
 
 typedef std::vector<std::string> KeyVec;
 typedef std::vector<Value> ValueVec;
@@ -1796,18 +1802,18 @@ std::string Value::get_comment_after() const {
 
 void Value::set_pos_item(size_t p) {
   position.item = p;
-  printf("%p: Set item position to %zu\n", (void*)this, position.item);
+  // printf("%p: Set item position to %zu\n", (void*)this, position.item);
 }
 int Value::get_pos_item() const {
-  printf("%p: Get item position: %zu\n", (void*)this, position.item);
+  // printf("%p: Get item position: %zu\n", (void*)this, position.item);
   return static_cast<int>(position.item);
 }
 void Value::set_pos_key(size_t p) {
   position.key = p;
-  printf("%p: Set key position to %zu\n", (void*)this, position.key);
+  // printf("%p: Set key position to %zu\n", (void*)this, position.key);
 }
 int Value::get_pos_key() const {
-  printf("%p: Get key position: %zu\n", (void*)this, position.key);
+  // printf("%p: Get key position: %zu\n", (void*)this, position.key);
   return static_cast<int>(position.key);
 }
 

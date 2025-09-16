@@ -46,6 +46,8 @@ HJSON_OP_DECL_ASS(_T, %=)
 
 namespace Hjson {
 
+std::string version();
+
 
 class type_mismatch : public std::logic_error {
   using std::logic_error::logic_error;
@@ -304,10 +306,11 @@ public:
   Value& at(const char *key);
   // Iterations are always done in alphabetical key order. Returns a default
   // constructed iterator if this Value is of any other type than Map.
-  std::map<std::string, Value>::iterator begin();
-  std::map<std::string, Value>::iterator end();
-  std::map<std::string, Value>::const_iterator begin() const;
-  std::map<std::string, Value>::const_iterator end() const;
+  typedef std::map<std::string, Value> ValueMap;
+  ValueMap::iterator begin();
+  ValueMap::iterator end();
+  ValueMap::const_iterator begin() const;
+  ValueMap::const_iterator end() const;
   // Removes the child element specified by the input key if this Value is of
   // type Map. Returns the number of erased elements (0 or 1). Throws
   // Hjson::type_mismatch if this Value is of any other type than Map or

@@ -26,7 +26,7 @@ public:
   int index;
   bool isEmpty;
   std::string commentAfter;
-  std::map<std::string, Value>::const_iterator it;
+  Value::ValueMap::const_iterator it;
 };
 
 
