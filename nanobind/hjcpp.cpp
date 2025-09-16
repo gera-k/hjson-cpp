@@ -63,7 +63,112 @@ NB_MODULE(hjcpp, m) {
 
 static void map2dict(const Hjson::Value& from, nb::dict& to, nb::dict& comm);
 static void vector2list(const Hjson::Value& from, nb::list& to, nb::list& comm);
-static std::function<void(std::string& key, Hjson::Value&)> duplicateKeyHandler = nullptr;
+
+static bool verbose = false;
+
+// parse key in format <name><index>
+//  returns true, name, ind if format is correct
+//  returns true, name, ind = -1 if name is correct but -<index> part is missing
+static bool parseKey(const std::string& key, std::string& name, int& ind)
+{
+    std::string nm;
+    unsigned ix;
+
+    // find first digit in key, if present it is start of index
+    auto idx_start = key.find_first_of("0123456789", 0);
+    if (idx_start == std::string::npos)
+    {
+        nm = key;
+        ind = -1; // no index
+    }
+    else
+    {
+        nm = key.substr(0, idx_start);
+        try
+        {
+            ix = std::stoul(key.substr(idx_start));
+            ind = static_cast<int>(ix);
+        }
+        catch(const std::exception&)
+        {
+            printf("Key '%s' has invalid index\n", key.c_str());
+            return false;
+        }
+    }
+
+    if (nm.empty())
+    {
+        printf("Key '%s' has invalid format\n", key.c_str());
+        return false;
+    }
+    
+    name = nm;
+    if (verbose)
+        printf("Key '%s' -> '%s'%d\n", key.c_str(), name.c_str(), ind);
+
+    return true;
+}
+
+void duplicateKeyHandler(std::string& key, Hjson::Value& map)
+{
+    std::string name;
+    int ind;
+    char buf[32];
+
+    if (!parseKey(key, name, ind))
+        return;
+
+    // index is present - the key must be unique
+    //  return to parser which will throw an exception if it's not unique
+    if (ind >= 0)
+    {
+        if (verbose && map[key].defined())
+            printf("Key '%s' is not unique\n", key.c_str());
+        return;
+    }
+
+    // index-less key is not defined, return it as is
+    if (!map[key].defined())
+    {
+        if (verbose)
+            printf("Key '%s' is not defined, no need to change\n", key.c_str());
+        return;
+    }
+    // index-less key is already defined so it is duplicate
+    //  replace it with <key>0 and add a new key with index
+    else if (map[key].type() != Hjson::Type::Null)
+    {
+        snprintf(buf, sizeof(buf), "%s0", key.c_str());
+        std::string key0(buf);
+
+        map[key0] = map[key];
+        
+        // remove the original key
+        map.erase(key);
+        
+        if (verbose)
+            printf("Replace '%s' with '%s'\n", key.c_str(), key0.c_str());
+    }
+
+    // otherwise allocate a new key with index
+    int n = 0;
+    std::string key_new;
+    while (n < 100)
+    {
+        snprintf(buf, sizeof(buf), "%s%d", name.c_str(), n);
+        key_new = buf;
+        if (!map[key_new].defined())
+            break;
+        n++;
+    }
+    if (n < 100)
+    {
+        if (verbose)
+            printf("Replace '%s' with '%s'\n", key.c_str(), key_new.c_str());
+        key = key_new;
+    }
+};
+
 
 bool hj2py(
     std::string str,        // string containing HJSON data to parse

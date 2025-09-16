@@ -27,12 +27,27 @@ test2 = """
 }
 """
 
+test3 = """
+{
+    cfg: {
+        cfg: This is config blok 0
+        val: 1234
+    }
+    cfg: {
+        cfg: This is config blok 1
+        val: 5678
+    }
+}
+"""
+
+test = test3
+
 obj: dict = {}
 comm: list = []
 err: dict = {}
 
 print("Hjson to Python:")
-ret = hjcpp.hj2py(test1, obj, comm, err)
+ret = hjcpp.hj2py(test, obj, comm, err)
 print (f"ret={ret}")
 print (f"obj={json.dumps(obj, indent=4)}")
 print (f"comm={json.dumps(comm, indent=4)}")
