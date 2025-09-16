@@ -141,8 +141,12 @@ private:
   std::shared_ptr<ValueImpl> prv;
   std::shared_ptr<Comments> cm;
   bool root = false;
-
-  Value(std::shared_ptr<ValueImpl>, std::shared_ptr<Comments>);
+  struct Position{
+    size_t item = 0;
+    size_t key = 0;
+    void reset() { item = 0; key = 0; }
+  } position;
+  Value(std::shared_ptr<ValueImpl>, std::shared_ptr<Comments>, Position pos);
 
 public:
   Value();
@@ -335,6 +339,12 @@ public:
   // Sets comment shown after this Value.
   void set_comment_after(const std::string&);
   std::string get_comment_after() const;
+
+  void set_pos_item(size_t p);
+  int get_pos_item() const;
+  void set_pos_key(size_t p);
+  int get_pos_key() const;
+
 
   // Copies all comments from the other Hjson::Value.
   void set_comments(const Value&);

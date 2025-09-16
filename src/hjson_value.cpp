@@ -283,6 +283,7 @@ Value::Value(const Value& other)
     // in the other Value does not affect the comments in this Value.
     cm.reset(new Comments(*other.cm));
   }
+  position = other.position;
 }
 
 
@@ -290,6 +291,7 @@ Value::Value(Value&& other)
   : prv(other.prv),
     cm(other.cm)
 {
+  position = other.position;
 }
 
 
@@ -301,9 +303,10 @@ Value::Value(MapProxy&& other)
 }
 
 
-Value::Value(std::shared_ptr<ValueImpl> _prv, std::shared_ptr<Comments> _cm)
+Value::Value(std::shared_ptr<ValueImpl> _prv, std::shared_ptr<Comments> _cm, Position pos)
   : prv(_prv),
-    cm(_cm)
+    cm(_cm),
+    position(pos)
 {
 }
 
@@ -330,6 +333,7 @@ Value& Value::operator=(Value&& other) {
   // or to a variable that has not been assigned any other value yet.
   if (!this->defined()) {
     this->cm = other.cm;
+    this->position = other.position;
   }
 
   this->prv = other.prv;
@@ -1790,6 +1794,22 @@ std::string Value::get_comment_after() const {
   return "";
 }
 
+void Value::set_pos_item(size_t p) {
+  position.item = p;
+  printf("%p: Set item position to %zu\n", (void*)this, position.item);
+}
+int Value::get_pos_item() const {
+  printf("%p: Get item position: %zu\n", (void*)this, position.item);
+  return static_cast<int>(position.item);
+}
+void Value::set_pos_key(size_t p) {
+  position.key = p;
+  printf("%p: Set key position to %zu\n", (void*)this, position.key);
+}
+int Value::get_pos_key() const {
+  printf("%p: Get key position: %zu\n", (void*)this, position.key);
+  return static_cast<int>(position.key);
+}
 
 void Value::set_comments(const Value& other) {
   if (other.cm) {
@@ -1798,6 +1818,7 @@ void Value::set_comments(const Value& other) {
     }
 
     *cm = *other.cm;
+    position = other.position;
   } else {
     clear_comments();
   }
@@ -1806,6 +1827,7 @@ void Value::set_comments(const Value& other) {
 
 void Value::clear_comments() {
   cm.reset();
+  position.reset();
 }
 
 
@@ -1824,6 +1846,7 @@ Value& Value::assign_with_comments(Value&& other) {
   // assignment operator, no need to call it here.
   if (defined()) {
     cm = other.cm;
+    position = other.position;
   }
   return operator=(std::move(other));
 }
@@ -1832,7 +1855,7 @@ Value& Value::assign_with_comments(Value&& other) {
 MapProxy::MapProxy(std::shared_ptr<ValueImpl> _parent, const std::string &_key,
   Value *_pTarget)
   : Value(_pTarget ? _pTarget->prv : std::make_shared<ValueImpl>(Type::Undefined),
-      _pTarget ? _pTarget->cm : 0),
+      _pTarget ? _pTarget->cm : 0, _pTarget ? _pTarget->position : Position()),
     parentPrv(_parent),
     key(_key),
     pTarget(_pTarget),
@@ -1854,6 +1877,7 @@ MapProxy::~MapProxy() {
       pTarget->prv = this->prv;
       // In case cm was 0 but now has been created by a call to set_comment_x.
       pTarget->cm = this->cm;
+      pTarget->position = this->position;
     } else {
       // If the key is new we must add it to the order vector also.
       parentPrv->m->v.push_back(key);
@@ -1864,7 +1888,7 @@ MapProxy::~MapProxy() {
       // Without this requirement, checking for the existence of an element
       // would create an Undefined element for that key if it didn't already exist
       // (e.g. `if (val["key"] == 1) {` would create an element for "key").
-      parentPrv->m->m.emplace(key, Value(this->prv, this->cm));
+      parentPrv->m->m.emplace(key, Value(this->prv, this->cm, this->position));
     }
   }
 }
@@ -1909,6 +1933,7 @@ MapProxy& MapProxy::assign_with_comments(Value&& other) {
   // assignment operator, no need to call it here.
   if (defined()) {
     cm = other.cm;
+    position = other.position;
   }
   return operator=(std::move(other));
 }

@@ -34,6 +34,7 @@ class DecodeParent {
 public:
   Value val;
   CommentInfo ciBefore, ciKey, ciElemBefore, ciElemExtra;
+  size_t key_position = 0;
   std::string key;
   bool isRoot = false;
 };
@@ -457,12 +458,12 @@ static CommentInfo _getCommentAfter(Parser *p) {
 
 // Hjson strings can be quoteless
 // returns string, true, false, or null.
-static Value _readTfnns2(Parser *p, size_t &valEnd) {
+static Value _readTfnns2(Parser *p, size_t &valEnd, size_t& valStart) {
   if (_isPunctuatorChar(p->ch)) {
     throw syntax_error(_errAt(p, std::string("Found a punctuator character '") +
       (char)p->ch + std::string("' when expecting a quoteless string (check your syntax)")));
   }
-  size_t valStart = p->indexNext - 1;
+  valStart = p->indexNext - 1;
 
   if (std::isspace(p->ch)) {
     ++valStart;
@@ -525,7 +526,9 @@ static Value _readTfnns2(Parser *p, size_t &valEnd) {
 
 static Value _readTfnns(Parser *p) {
   size_t valEnd = 0;
-  auto ret = _readTfnns2(p, valEnd);
+  size_t valStart = 0;
+  auto ret = _readTfnns2(p, valEnd, valStart);
+  ret.set_pos_item(valStart);
   // Make sure that we include whitespace after the value in the after-comment.
   p->indexNext = static_cast<int>(valEnd);
   _next(p);
@@ -536,10 +539,12 @@ static Value _readTfnns(Parser *p) {
 // Parse an array value.
 // assuming ch == '['
 static void _readArrayBegin(Parser* p) {
+  p->vParent.back().val = Value(Type::Vector);
+  p->vParent.back().val.set_pos_item(p->indexNext - 1);
+
   // Skip '['.
   _next(p);
 
-  p->vParent.back().val = Value(Type::Vector);
   p->vParent.back().ciElemBefore = _white(p);
   p->vParent.back().ciElemExtra = CommentInfo();
 
@@ -590,6 +595,7 @@ static void _readArrayElemEnd(Parser* p) {
 
 static void _readObjectBegin(Parser *p) {
   p->vParent.back().val = Value(Type::Map);
+  p->vParent.back().val.set_pos_item(p->indexNext - 1);
 
   if (p->ch == '{') {
     _next(p);
@@ -628,6 +634,7 @@ static void _readObjectElemBegin(Parser* p) {
     }
   }
 
+  p->vParent.back().key_position = p->indexNext - 1;
   p->vParent.back().key = _readKeyname(p);
   if (p->vParent.back().isRoot && p->opt.duplicateKeyHandler) {
     p->opt.duplicateKeyHandler(p->vParent.back().key, object);
@@ -657,6 +664,7 @@ static void _readObjectElemEnd(Parser *p) {
     elem.set_comment_before("");
   }
   _setComment(elem, &Value::set_comment_before, p, p->vParent.back().ciElemBefore, p->vParent.back().ciElemExtra);
+  elem.set_pos_key(p->vParent.back().key_position);
   auto ciAfter = _white(p);
 
   // in Hjson the comma is optional and trailing commas are allowed
@@ -690,6 +698,8 @@ static void _readObjectElemEnd(Parser *p) {
 static void _readValueBegin(Parser *p) {
   p->vParent.push_back(DecodeParent());
   p->vParent.back().ciBefore = _white(p);
+  size_t pos = p->indexNext - 1;
+  Value val;
 
   switch (p->ch) {
   case '{':
@@ -700,7 +710,9 @@ static void _readValueBegin(Parser *p) {
     break;
   case '"':
   case '\'':
-    p->vParent.back().val.assign_with_comments(_readString(p, true));
+    val = _readString(p, true);
+    val.set_pos_item(pos);
+    p->vParent.back().val.assign_with_comments(std::move(val));
     p->vState.back() = ParseState::ValueEnd;
     break;
   default:

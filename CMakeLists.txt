@@ -51,6 +51,8 @@ configure_file(cmake/hjson-config-version.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/h
 
 export(TARGETS hjson FILE "${CMAKE_BINARY_DIR}/hjson.cmake")
 
+target_compile_options(hjson PRIVATE -fPIC)
+
 if(HJSON_ENABLE_INSTALL)
   install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/hjson-config.cmake
